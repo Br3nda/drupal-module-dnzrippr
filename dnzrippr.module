@@ -13,8 +13,66 @@ function dnzrippr_menu() {
     'page callback' => 'dnzrippr_config_page',
     'access arguments' => array('configure dnzrippr'),
   );
+
+  $items['dnzrips/add'] = array(
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('dnzrippr_form'),
+    'access arguments' => array('configure dnzrippr'),
+  );
   return $items;
 }
 
 function dnzrippr_config_page() {
+  $output = '';
+
+  $output .= l('Add', 'dnzrips/add');
+
+  $headers = array(
+    array('data' => 'Query string', 'field' => 'querystring', 'sort' => 'asc'),
+    'Actions',
+  );
+  $result = pager_query("SELECT * FROM {dnzrips}" . tablesort_sql($headers));
+  while ($rip = db_fetch_object($result)) {
+    $rows[] = array($rip->querystring, drupal_get_form('dnzrippr_fetch_form', $rip->drip_id));
+  }
+  $output .= theme('table', $headers, $rows);
+  $output .= theme('pager');
+  return $output;
 }
+
+function dnzrippr_form() {
+  $form = array();
+  $form['querystring'] = array(
+    '#title' => 'Query String',
+    '#type' => 'textfield',
+    '#required' => TRUE,
+  );
+  $form['save'] = array(
+    '#type' => 'submit',
+    '#value' => 'Save',
+  );
+  return $form;
+}
+
+function dnzrippr_form_submit($form, $form_state) {
+  $drip_id = $form_state['values']['drip_id'];
+  $rip->querystring = $form_state['values']['querystring'];
+  if($drip_id) {
+    $rip->drip_id = $drip_id;
+    drupal_write_record('dnzrips', $rip, array('drip_id'));
+  }
+  else {
+    drupal_write_record('dnzrips', $rip);
+  }
+  drupal_goto('dnzrips');
+}
+
+function dnzrippr_fetch_form($form, $drip_id) {
+  $form['drip_id'] = array('#type' => 'hidden', '#value' => $drip_id);
+  $form['fetch'] = array('#type' => 'submit', '#value' => 'Fetch');
+  return $form;
+}
+
+// function dnzrippr_fetch_form_submit($form, $form_state) {
+// //   drupal_set_message($drip_id);
+// }
