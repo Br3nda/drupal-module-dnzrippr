@@ -1,0 +1,21 @@
+<?php
+
+function dnzrippr_install() {
+  drupal_install_schema('dnzrippr');
+}
+function dnzrippr_uninstall() {
+  drupal_install_unschema('dnzrippr');
+}
+
+function dnzrippr_schema() {
+  $schema['dnzrips'] = array(
+    'fields' => array(
+      'drip_id' => array('type' => 'serial'),
+      'querystring' => array('type' => 'text', 'not null' => TRUE),
+    ),
+    'primary key' => array('drip_id'),
+  );
+  return $schema;
+}
+
+
