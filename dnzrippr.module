@@ -67,12 +67,32 @@ function dnzrippr_form_submit($form, $form_state) {
   drupal_goto('dnzrips');
 }
 
-function dnzrippr_fetch_form($form, $drip_id) {
+function dnzrippr_fetch_form($a, $drip_id) {
   $form['drip_id'] = array('#type' => 'hidden', '#value' => $drip_id);
   $form['fetch'] = array('#type' => 'submit', '#value' => 'Fetch');
+  $form['delete'] = array('#type' => 'submit', '#value' => 'Delete');
   return $form;
 }
 
-// function dnzrippr_fetch_form_submit($form, $form_state) {
-// //   drupal_set_message($drip_id);
-// }
+function dnzrippr_fetch_form_submit($form, $form_state) {
+  $drip_id = $form_state['values']['drip_id'];
+  $op = $form_state['values']['op'];
+
+  switch($op) {
+    case 'Delete':
+      _dnzrippr_delete($drip_id);
+    break;
+    case 'Fetch':
+      _dnzrippr_fetch($drip_id);
+    break;
+  }
+}
+
+function _dnzrippr_delete($drip_id) {
+  db_query("DELETE FROM {dnzrips} WHERE drip_id=%d", $drip_id);
+}
+
+function _dnzrippr_fetch($drip_id) {
+  drupal_set_message("Fetch goes here");
+}
+
