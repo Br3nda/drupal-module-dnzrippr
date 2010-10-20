@@ -85,7 +85,7 @@ function dnzrippr_fetch_form_submit($form, $form_state) {
       _dnzrippr_delete($drip_id);
     break;
     case 'Fetch':
-      _dnzrippr_fetch($drip_id);
+      dnzrippr_fetch_batch($drip_id);
     break;
   }
 }
@@ -94,34 +94,67 @@ function _dnzrippr_delete($drip_id) {
   db_query("DELETE FROM {dnzrips} WHERE drip_id=%d", $drip_id);
 }
 
-function _dnzrippr_fetch($drip_id) {
+function dnzrippr_fetch_batch($drip_id) {
+  $batch = array(
+    'title' => t('Importing'),
+    'operations' => array(
+      array('dnzrippr_batch_fetch', array($drip_id)),
+    ),
+    'finished' => 'my_finished_callback',
+    'file' => 'path_to_file_containing_myfunctions',
+  );
+  batch_set($batch);
+// only needed if not inside a form _submit handler :
+// batch_process();
+}
+
+function dnzrippr_batch_fetch($drip_id, &$context){
+  $num_per_run = 5;
   $rip = _dnz_get($drip_id);
-  drupal_set_message(t('Fetching %querystring', array('%querystring' => $rip->querystring)));
-  $xml = digitalnzapi_do_search($rip->querystring, array('rows'=> 50));
+
+// //   drupal_set_message(t('Fetching %querystring', array('%querystring' => $rip->querystring)));
+  $xml = digitalnzapi_do_search($rip->querystring, array('rows'=> $num_per_run, 'start' => $context['sandbox']['progress']));
   $xml = new SimpleXMLElement($xml);
   $results = digitalnzapi_results($xml);
+  
+  if (empty($context['sandbox'])) {
+    $total = (array)$xml;
+    $total = $total['result-count'];
+    drupal_set_message("TOTAL results = $total");
+//     drupal_set_message(print_r($xml, 1));
+    $context['sandbox']['progress'] = 0;
+    $context['sandbox']['max'] = $total;
+  }
+  
   foreach($results as $r) {
+      
     
     foreach(array('object-copyright', 'marsden-code', 'large-thumbnail-url', 'geo-co-ords', 'object-license', 'publisher', 'object-url', 'peer-reviewed', 'published', 'description', 'object-rights-url', 'author') as $thing) {
       
       $r['node'][$thing] = (array)$r['node'][$thing];
-      if(count($r['node'][$thing]) < 2) {
+      if(count($r['node'][$thing]) == 0) {
+        unset($r['node'][$thing]);
+      }
+      elseif(count($r['node'][$thing]) == 1) {
         $r['node'][$thing] = $r['node'][$thing][0];
       }
     }
     
-    drupal_set_message(nl2br(print_r($r, 1)));
+//     drupal_set_message(nl2br(print_r($r, 1)));
 
     $existing = _dnz_node_get($r['link']);
     $node->nid = $existing->nid;
-    drupal_set_message($r['title'] .' '. $r['link']);
+//     drupal_set_message($r['title'] .' '. $r['link']);
 
-    $node->title = $r['title'];
+    $node->title = substr($r['title'], 0, 200); //max 200, cos of drupal's database column limitation
     $node->body = $r['snippet'];
+    $node->promote = 1;
+    $node->comment = 2;
+    $node->publish = 1;
 //     $node->created = $r['date'];
     
     if ($node->nid) {
-      drupal_set_message("Existing record, ". l($node->title, 'node/'. $existing->nid));
+//       drupal_set_message("Existing record, ". l($node->title, 'node/'. $existing->nid));
     }
     else {
       $node->details = $r;
@@ -134,38 +167,92 @@ function _dnzrippr_fetch($drip_id) {
           node_save($node);
       }
       
-      drupal_set_message(t("New node created !link'", array('!link' => l($node->title, 'node/'. $node->nid))));
+//       drupal_set_message(t("New node created !link'", array('!link' => l($node->title, 'node/'. $node->nid))));
+      _dnzrippr_save_dnznodes($node, $r);
+      _dnzrippr_save_geocoords($node);
+    }
+    
+    
+    drupal_set_message(l($r['title'], 'node/'. $node->nid));    
 
+    
+    $context['results'][] = $node->title;
+    $context['sandbox']['progress']++;
+    $context['message'] = t('Searching for "%querystring". Imported !num of !total - %title', array('%querystring' => $rip->querystring, '!num' =>  $context['sandbox']['progress'], '!total' => $context['sandbox']['max'], '%title' => $node->title));
+    
+    unset($node);
+  }
+  
+  
+  if ($context['sandbox']['progress'] != $context['sandbox']['max']) {
+    $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['max'];
+  }
+}
+
+
+function _dnzrippr_save_geocoords(&$node) {
+  if(empty($node->details['geocoords'])) return;
+  drupal_set_message(print_r($node->details['geocoords'], 1));
+  $geo = $node->details['geocoords'];
+  list($lat, $long) = split(',', $geo);
+  drupal_set_message("lat = $lat. long=$long");
+  
+  $vid = 128; // TODO make configurble
+  $term = taxonomy_get_term_by_name($geo);
+  if(!$term) {
+    $term = array(
+      'vid' => $vid, // Voacabulary ID
+      'name' => $geo, // Term Name 
+    );
+    taxonomy_save_term($term);
+    $term_geo = array(
+              'tid' => $term['tid'],
+              'lat' => is_numeric($lat),
+              'lon' => is_numeric($long),
+  /*            'bound_top' => is_numeric($feed_item['term_bound_top']) ? $feed_item['term_bound_top'] : NULL,
+              'bound_right' => is_numeric($feed_item['term_bound_right']) ? $feed_item['term_bound_right'] : NULL,
+              'bound_bottom' => is_numeric($feed_item['term_bound_bottom']) ? $feed_item['term_bound_bottom'] : NULL,
+              'bound_left' => is_numeric($feed_item['term_bound_left']) ? $feed_item['term_bound_left'] : NULL,*/
+            );
+    geotaxonomy_write_record($term_geo);
+  }
+  
+  taxonomy_node_save($node, array($term));
+}
+
+function _dnzrippr_save_dnznodes(&$node, $r) {
       $record->nid = $node->nid;
       $record->link = $r['link'];
       $record->date = $r['date'];
       
       $record->category = $r['node']['category'];
       $record->large_thumb_url = $r['node']['large-thumb-url'];
-      $record->author = $r['node']['author'];
+      $record->author = empty($r['node']['author']) ? 'unknown' : $r['node']['author'];
       $record->geocoords = $r['node']['geo-co-ords'];
       $record->copyright = $r['node']['object-copyright'];
       
       $record->syndication_date = $r['node']['syndication-date'];
       $record->snippet = $r['snippet'];
+      $record->type = $r['type'];
+      $record->metadata_url = $r['node']['metadata-url'];
+      $record->content_provider = $r['node']['content-provider'];
+      $record->source_url = $r['node']['source-url'];
+      $record->id = $r['node']['id'];
+      $record->object_url = $r['node']['object-url'];
+      $record->thumbnail_url = $r['node']['thumbnail-url'];
+      $record->description = $r['node']['description'];
+      $record->display_url = $r['node']['display-url'];
 //       $record->data = serialize($r);
 
-//Array ( [link] => http://api.digitalnz.org/records/v1/1753507/source [type] => Images [title] => train heading to palmy [date] => [node] => Array ( [object-copyright] => SimpleXMLElement Object ( ) [marsden-code] => SimpleXMLElement Object ( ) [metadata-url] => http://api.digitalnz.org/records/v1/1753507 [category] => Images [large-thumbnail-url] => SimpleXMLElement Object ( ) [author] => Tania Ferris [title] => train heading to palmy [geo-co-ords] => SimpleXMLElement Object ( ) [published] => SimpleXMLElement Object ( ) [content-provider] => PhotoSales [source-url] => http://api.digitalnz.org/records/v1/1753507/source [object-license] => SimpleXMLElement Object ( ) [syndication-date] => 2010-10-07T23:55:12.471Z [date] => SimpleXMLElement Object ( ) [id] => 1753507 [publisher] => SimpleXMLElement Object ( ) [object-url] => SimpleXMLElement Object ( ) [thumbnail-url] => http://www.photosales.co.nz/thumb_mark2.php?i=83839 [description] => Palmerston train [object-rights-url] => SimpleXMLElement Object ( ) [peer-reviewed] => SimpleXMLElement Object ( ) [display-url] => http://www.photosales.co.nz/details.php?gid=201&pid=40429 ) [extra] => Array ( [provider] => PhotoSales [id] => id:1753507 [thumbnail_url] => http://www.photosales.co.nz/thumb_mark2.php?i=83839 ) [snippet] =>
-
       drupal_write_record('dnznodes', $record);
-    }
-    
-    unset($node);
-  }
- 
+      $node->details = (array)$record;
 }
-
 
 function dnzrippr_image_save($node) {
     
   $url = $node->details['node']['object-url'];
   if(!empty($url)) {
-    drupal_set_message("Image url = $url");
+//     drupal_set_message("Image url = $url");
     $result = drupal_http_request($url);
     $filepath = file_save_data($result->data, file_directory_path());
     $node = image_create_node_from($filepath, $node->title, $node->title);
@@ -197,7 +284,15 @@ function dnzrippr_nodeapi(&$node, $op) {
     case 'view': dnzrippr_node_view($node);
     break;
     case 'delete': dnzrippr_node_delete($node);
+    break;
+    case 'alter': dnzrippr_node_alter($node);
   }
+}
+
+function dnzrippr_node_alter(&$node) {
+  $node->links['digitalnz'] = array('title' => 'Digital NZ', 'href' => $node->details['link']);
+  $node->links['source'] = array('title' => 'Source', 'href' => $node->details['source_url']);
+  $node->links['display'] = array('title' => 'Display', 'href' => $node->details['display_url']);
 }
 
 function dnzrippr_node_delete($node) {
@@ -205,13 +300,38 @@ function dnzrippr_node_delete($node) {
 }
 
 function dnzrippr_node_load(&$node) {
-  $data = db_fetch_array(db_query("SELECT * FROM {dnznodes} WHERE nid=%d", $node->nid));
-    $node->details = $data;
+  $node->details = db_fetch_array(db_query("SELECT * FROM {dnznodes} WHERE nid=%d", $node->nid));
 }
 
 function dnzrippr_node_view(&$node) {
-  $node->content['link'] = array('#value' => l($node->details['link'], $node->details['link']));
-  foreach(array('snippet', 'snippet', 'geocoords', 'copyright') as $thing) {
-    $node->content[$thing] = array('#value' => '<p>'. $node->details[$thing] .'</p>');
+  if($node->type != 'image') {
+  if (empty($node->details['large_thumb_url'])) {
+    $node->content['thumb'] = array('#value' => theme('image', $node->details['thumbnail_url'], $node->title, $node->title, null, FALSE), '#weight' => 1);  
   }
+  else {
+      $node->content['thumb'] = array('#value' => theme('image', $node->details['large_thumb_url'], $node->title, $node->title, null, FALSE), '#weight' => 1);  
+    }
+  }
+//   $node->content['link'] = array('#value' => l($node->details['link'], $node->details['link']));
+  foreach(array('description', 'category', 'copyright', 'author', 'type', 'content_provider') as $thing) {
+    $node->content[$thing] = array('#value' => '<li>'.$thing .': '.  $node->details[$thing] .'</li>', '#weight' => -2);
+  }
+  
+//   $node->content['debug'] = array('#value' => nl2br(htmlentities(print_r($node->details, 1))), '#weight' => 10);
+  
+  if ($node->details['geocoords']) {
+    drupal_seT_message("We have geo");
+    $geo = $node->details['geocoords'];
+    $node->content['map'] = array(
+      '#value' => '<iframe width="425" height="350" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src="http://www.google.co.nz/maps?f=q&amp;source=s_q&amp;hl=en&amp;geocode=&amp;q=' . $geo . '&amp;ie=UTF8&amp;t=h&amp;z=14&amp;output=embed"></iframe>'.$geo,
+      '#weight' => 8,
+    );
+  }
+  if($node->type == 'story') {
+    $node->content['iframe'] = array('#value' => '<iframe src="'. $node->details['source_url'] . '" width="100%" height="500"></iframe>', '#weight' => 10);
+  }
+  
+  
+//  $node->links[] = l(t('Digital NZ'), $node->details['link']);
+  
 }
