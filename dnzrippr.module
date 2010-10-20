@@ -68,6 +68,7 @@ function dnzrippr_form_submit($form, $form_state) {
 }
 
 function dnzrippr_fetch_form($a, $drip_id) {
+  
   $form['drip_id'] = array('#type' => 'hidden', '#value' => $drip_id);
   $form['fetch'] = array('#type' => 'submit', '#value' => 'Fetch');
   $form['delete'] = array('#type' => 'submit', '#value' => 'Delete');
@@ -75,7 +76,8 @@ function dnzrippr_fetch_form($a, $drip_id) {
 }
 
 function dnzrippr_fetch_form_submit($form, $form_state) {
-  $drip_id = $form_state['values']['drip_id'];
+//   $drip_id = $form_state['values']['drip_id'];
+  $drip_id = intval($_POST['drip_id']);
   $op = $form_state['values']['op'];
 
   switch($op) {
@@ -93,6 +95,123 @@ function _dnzrippr_delete($drip_id) {
 }
 
 function _dnzrippr_fetch($drip_id) {
-  drupal_set_message("Fetch goes here");
+  $rip = _dnz_get($drip_id);
+  drupal_set_message(t('Fetching %querystring', array('%querystring' => $rip->querystring)));
+  $xml = digitalnzapi_do_search($rip->querystring, array('rows'=> 50));
+  $xml = new SimpleXMLElement($xml);
+  $results = digitalnzapi_results($xml);
+  foreach($results as $r) {
+    
+    foreach(array('object-copyright', 'marsden-code', 'large-thumbnail-url', 'geo-co-ords', 'object-license', 'publisher', 'object-url', 'peer-reviewed', 'published', 'description', 'object-rights-url', 'author') as $thing) {
+      
+      $r['node'][$thing] = (array)$r['node'][$thing];
+      if(count($r['node'][$thing]) < 2) {
+        $r['node'][$thing] = $r['node'][$thing][0];
+      }
+    }
+    
+    drupal_set_message(nl2br(print_r($r, 1)));
+
+    $existing = _dnz_node_get($r['link']);
+    $node->nid = $existing->nid;
+    drupal_set_message($r['title'] .' '. $r['link']);
+
+    $node->title = $r['title'];
+    $node->body = $r['snippet'];
+//     $node->created = $r['date'];
+    
+    if ($node->nid) {
+      drupal_set_message("Existing record, ". l($node->title, 'node/'. $existing->nid));
+    }
+    else {
+      $node->details = $r;
+      switch($r['type']) {
+        case 'Images':
+          $node = dnzrippr_image_save($node);
+        break;
+        default:
+          $node->type = 'story';
+          node_save($node);
+      }
+      
+      drupal_set_message(t("New node created !link'", array('!link' => l($node->title, 'node/'. $node->nid))));
+
+      $record->nid = $node->nid;
+      $record->link = $r['link'];
+      $record->date = $r['date'];
+      
+      $record->category = $r['node']['category'];
+      $record->large_thumb_url = $r['node']['large-thumb-url'];
+      $record->author = $r['node']['author'];
+      $record->geocoords = $r['node']['geo-co-ords'];
+      $record->copyright = $r['node']['object-copyright'];
+      
+      $record->syndication_date = $r['node']['syndication-date'];
+      $record->snippet = $r['snippet'];
+//       $record->data = serialize($r);
+
+//Array ( [link] => http://api.digitalnz.org/records/v1/1753507/source [type] => Images [title] => train heading to palmy [date] => [node] => Array ( [object-copyright] => SimpleXMLElement Object ( ) [marsden-code] => SimpleXMLElement Object ( ) [metadata-url] => http://api.digitalnz.org/records/v1/1753507 [category] => Images [large-thumbnail-url] => SimpleXMLElement Object ( ) [author] => Tania Ferris [title] => train heading to palmy [geo-co-ords] => SimpleXMLElement Object ( ) [published] => SimpleXMLElement Object ( ) [content-provider] => PhotoSales [source-url] => http://api.digitalnz.org/records/v1/1753507/source [object-license] => SimpleXMLElement Object ( ) [syndication-date] => 2010-10-07T23:55:12.471Z [date] => SimpleXMLElement Object ( ) [id] => 1753507 [publisher] => SimpleXMLElement Object ( ) [object-url] => SimpleXMLElement Object ( ) [thumbnail-url] => http://www.photosales.co.nz/thumb_mark2.php?i=83839 [description] => Palmerston train [object-rights-url] => SimpleXMLElement Object ( ) [peer-reviewed] => SimpleXMLElement Object ( ) [display-url] => http://www.photosales.co.nz/details.php?gid=201&pid=40429 ) [extra] => Array ( [provider] => PhotoSales [id] => id:1753507 [thumbnail_url] => http://www.photosales.co.nz/thumb_mark2.php?i=83839 ) [snippet] =>
+
+      drupal_write_record('dnznodes', $record);
+    }
+    
+    unset($node);
+  }
+ 
 }
 
+
+function dnzrippr_image_save($node) {
+    
+  $url = $node->details['node']['object-url'];
+  if(!empty($url)) {
+    drupal_set_message("Image url = $url");
+    $result = drupal_http_request($url);
+    $filepath = file_save_data($result->data, file_directory_path());
+    $node = image_create_node_from($filepath, $node->title, $node->title);
+  }
+  else {
+    $node->type = 'story';
+    node_save($node);
+  }
+  return $node;
+}
+
+function dnzrippr_node_form($form) {
+  return $form;
+}
+
+function _dnz_get($drip_id) {
+  return db_fetch_object(db_query("SELECT * FROM {dnzrips} WHERE drip_id=%d", $drip_id));
+}
+
+function _dnz_node_get($link) {
+    return db_fetch_object(db_query("SELECT * FROM {dnznodes} WHERE link='%s'", $link));
+
+}
+
+function dnzrippr_nodeapi(&$node, $op) {
+  switch($op) {
+    case 'load': dnzrippr_node_load($node);
+    break;
+    case 'view': dnzrippr_node_view($node);
+    break;
+    case 'delete': dnzrippr_node_delete($node);
+  }
+}
+
+function dnzrippr_node_delete($node) {
+  db_query("DELETE FROM {dnznodes} WHERE nid=%d", $node->nid);
+}
+
+function dnzrippr_node_load(&$node) {
+  $data = db_fetch_array(db_query("SELECT * FROM {dnznodes} WHERE nid=%d", $node->nid));
+    $node->details = $data;
+}
+
+function dnzrippr_node_view(&$node) {
+  $node->content['link'] = array('#value' => l($node->details['link'], $node->details['link']));
+  foreach(array('snippet', 'snippet', 'geocoords', 'copyright') as $thing) {
+    $node->content[$thing] = array('#value' => '<p>'. $node->details[$thing] .'</p>');
+  }
+}

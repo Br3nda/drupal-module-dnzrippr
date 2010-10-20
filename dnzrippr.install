@@ -4,7 +4,7 @@ function dnzrippr_install() {
   drupal_install_schema('dnzrippr');
 }
 function dnzrippr_uninstall() {
-  drupal_install_unschema('dnzrippr');
+  drupal_uninstall_schema('dnzrippr');
 }
 
 function dnzrippr_schema() {
@@ -14,6 +14,22 @@ function dnzrippr_schema() {
       'querystring' => array('type' => 'text', 'not null' => TRUE),
     ),
     'primary key' => array('drip_id'),
+  );
+  $schema['dnznodes'] = array(
+    'fields' => array(
+      'nid' => array('type' => 'int'),
+      'link' => array('type' => 'text', 'not null' => TRUE),
+      'date' => array('type' => 'text', 'not null' => TRUE),
+      'category' => array('type' => 'text', 'not null' => TRUE),
+      'large_thumb_url' => array('type' => 'text'),
+      'author' => array('type' => 'text', 'not null' => TRUE),
+      'syndication_date' => array('type' => 'text', 'not null' => TRUE),
+      'snippet' => array('type' => 'text', 'not null' => TRUE),
+    ),
+    'primary key' => array('nid'),
+    'uniques indexes' => array(
+      'link_unique' => array('link'),
+    ),
   );
   return $schema;
 }
