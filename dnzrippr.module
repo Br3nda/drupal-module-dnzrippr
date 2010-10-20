@@ -191,33 +191,33 @@ function dnzrippr_batch_fetch($drip_id, &$context){
 
 
 function _dnzrippr_save_geocoords(&$node) {
-  if(empty($node->details['geocoords'])) return;
-  drupal_set_message(print_r($node->details['geocoords'], 1));
-  $geo = $node->details['geocoords'];
-  list($lat, $long) = split(',', $geo);
-  drupal_set_message("lat = $lat. long=$long");
-  
-  $vid = 128; // TODO make configurble
-  $term = taxonomy_get_term_by_name($geo);
-  if(!$term) {
-    $term = array(
-      'vid' => $vid, // Voacabulary ID
-      'name' => $geo, // Term Name 
-    );
-    taxonomy_save_term($term);
-    $term_geo = array(
-              'tid' => $term['tid'],
-              'lat' => is_numeric($lat),
-              'lon' => is_numeric($long),
-  /*            'bound_top' => is_numeric($feed_item['term_bound_top']) ? $feed_item['term_bound_top'] : NULL,
-              'bound_right' => is_numeric($feed_item['term_bound_right']) ? $feed_item['term_bound_right'] : NULL,
-              'bound_bottom' => is_numeric($feed_item['term_bound_bottom']) ? $feed_item['term_bound_bottom'] : NULL,
-              'bound_left' => is_numeric($feed_item['term_bound_left']) ? $feed_item['term_bound_left'] : NULL,*/
-            );
-    geotaxonomy_write_record($term_geo);
-  }
-  
-  taxonomy_node_save($node, array($term));
+//   if(empty($node->details['geocoords'])) return;
+//   drupal_set_message(print_r($node->details['geocoords'], 1));
+//   $geo = $node->details['geocoords'];
+//   list($lat, $long) = split(',', $geo);
+//   drupal_set_message("lat = $lat. long=$long");
+//   
+//   $vid = 128; // TODO make configurble
+//   $term = taxonomy_get_term_by_name($geo);
+//   if(!$term) {
+//     $term = array(
+//       'vid' => $vid, // Voacabulary ID
+//       'name' => $geo, // Term Name 
+//     );
+//     taxonomy_save_term($term);
+//     $term_geo = array(
+//               'tid' => $term['tid'],
+//               'lat' => is_numeric($lat),
+//               'lon' => is_numeric($long),
+//   /*            'bound_top' => is_numeric($feed_item['term_bound_top']) ? $feed_item['term_bound_top'] : NULL,
+//               'bound_right' => is_numeric($feed_item['term_bound_right']) ? $feed_item['term_bound_right'] : NULL,
+//               'bound_bottom' => is_numeric($feed_item['term_bound_bottom']) ? $feed_item['term_bound_bottom'] : NULL,
+//               'bound_left' => is_numeric($feed_item['term_bound_left']) ? $feed_item['term_bound_left'] : NULL,*/
+//             );
+//     geotaxonomy_write_record($term_geo);
+//   }
+//   
+//   taxonomy_node_save($node, array($term));
 }
 
 function _dnzrippr_save_dnznodes(&$node, $r) {
