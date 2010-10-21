@@ -2,4 +2,5 @@ name = Digital NZ Rippr
 description = Pulls in a constant feed from a DNZ search query
 dependencies[] = digitalnzapi
 dependencies[] = date
+dependencies[] = gmap
 core = 6.x
