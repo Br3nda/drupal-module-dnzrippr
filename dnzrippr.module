@@ -328,7 +328,8 @@ function dnzrippr_node_view(&$node) {
     );
   }
   if($node->type == 'story') {
-    $node->content['iframe'] = array('#value' => '<iframe src="'. $node->details['source_url'] . '" width="100%" height="500"></iframe>', '#weight' => 10);
+    //$node->content['iframe'] = array('#value' => '<iframe src="'. $node->details['source_url'] . '" width="100%" height="500"></iframe>', '#weight' => 10);
+    $node->content['Source'] = array('#value' => ($node-title, $node->details['source_url']));
   }
   
   
