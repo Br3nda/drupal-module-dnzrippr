@@ -19,7 +19,19 @@ function dnzrippr_menu() {
     'page arguments' => array('dnzrippr_form'),
     'access arguments' => array('configure dnzrippr'),
   );
+  
+  $items['dnztimeline'] = array(
+    'page callback' => 'dnzrippr_timeline_page',
+    'access arguments' => array('access content'),
+    'title' => t('Timeline'),
+  );
+  
   return $items;
+}
+
+function dnzrippr_timeline_page() {
+  $output = '';
+  return $output; 
 }
 
 function dnzrippr_config_page() {
@@ -168,11 +180,10 @@ function dnzrippr_batch_fetch($drip_id, &$context){
           $node->type = 'story';
           node_save($node);
       }
-      
-//       drupal_set_message(t("New node created !link'", array('!link' => l($node->title, 'node/'. $node->nid))));
-      _dnzrippr_save_dnznodes($node, $r);
-      _dnzrippr_save_geocoords($node);
     }
+    _dnzrippr_save_dnznodes($node, $r);
+    _dnzrippr_save_geocoords($node);
+    
     
     
     drupal_set_message(l($r['title'], 'node/'. $node->nid));    
@@ -222,6 +233,8 @@ function _dnzrippr_save_geocoords(&$node) {
 //   taxonomy_node_save($node, array($term));
 }
 
+
+
 function _dnzrippr_save_dnznodes(&$node, $r) {
       $record->nid = $node->nid;
       $record->link = $r['link'];
@@ -246,7 +259,12 @@ function _dnzrippr_save_dnznodes(&$node, $r) {
       $record->display_url = $r['node']['display-url'];
 //       $record->data = serialize($r);
 
-      drupal_write_record('dnznodes', $record);
+      if($node->new) {
+        drupal_write_record('dnznodes', $record);
+      }
+      else {
+        drupal_write_record('dnznodes', $record, array('nid'));
+      }
       $node->details = (array)$record;
 }
 
