@@ -58,9 +58,6 @@ function dnzrippr_timeline_page() {
     div#timelinecontainer{ height: 300px; }
     div#mapcontainer{ height: 500px; }
     </style>
-    <div id="help">
-    <h1>Basic Example, Timeline v.1.2</h1>
-    </div>
     <div id="timemap">
       <div id="timelinecontainer">
         <div id="timeline"></div>
