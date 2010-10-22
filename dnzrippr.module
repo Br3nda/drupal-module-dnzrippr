@@ -69,7 +69,7 @@ function dnzrippr_timeline_page() {
     
    $result = db_query("SELECT *  FROM {dnznodes} d INNER JOIN {node} n ON d.nid = n.nid WHERE date <> '' AND geocoords <> '' ORDER BY date LIMIT 5000");
 
-    
+  $title = str_replace($node->title, '"', '\"');  
   $js = <<< STR
   
 <script type="text/javascript">
@@ -102,10 +102,10 @@ STR;
                               "lat" : $lat,
                               "lon" : $lon
                            },
-                          "title" : "$node->title",
+                          "title" : "$title",
                           "options" : {
                             // set the full HTML for the info window
-                            "infoHtml": "<div class='custominfostyle'>$node->title</div>"
+                            "infoHtml": "<div class='custominfostyle'>$title</div>"
                           }
                         },
 STR;
