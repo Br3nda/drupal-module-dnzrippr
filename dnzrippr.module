@@ -29,7 +29,7 @@ function dnzrippr_menu() {
   return $items;
 }
 
-function dnzrippr_timeline_page($year) {
+function dnzrippr_timeline_page() {
   $output = '';
 //   $headers = array('date');
 // 
