@@ -56,7 +56,7 @@ function dnzrippr_timeline_page() {
   $output .= '    
       <style>
     div#timelinecontainer{ height: 300px; }
-    div#mapcontainer{ height: 300px; }
+    div#mapcontainer{ height: 500px; }
     </style>
     <div id="help">
     <h1>Basic Example, Timeline v.1.2</h1>
@@ -97,7 +97,7 @@ STR;
      $start = strtotime("$i-01-01");
      $end = $start+(60*60*24*256*10);
 //      drupal_seT_message("$start to $end");
-     $result = db_query("SELECT *  FROM {dnznodes} d INNER JOIN {node} n ON d.nid = n.nid WHERE date <> '' AND date::bigint > %d AND date::bigint < %d ORDER BY date LIMIT 50", $start, $end);
+     $result = db_query("SELECT *  FROM {dnznodes} d INNER JOIN {node} n ON d.nid = n.nid WHERE date <> '' AND date::bigint > %d AND date::bigint < %d ORDER BY geocoords DESC LIMIT 100", $start, $end);
       while($node = db_fetch_object($result)) {
         $js .= dnzrippr_timemap_json($node);
       }
