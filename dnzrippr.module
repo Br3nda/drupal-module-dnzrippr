@@ -64,6 +64,7 @@ function dnzrippr_timeline_page() {
         </div>
         <div id="mapcontainer">
           <div id="map"></div>
+        </div>
         </div>';
     $output .= '<script>$(document).ready(function() { timemapLoad() });</script>';
     
