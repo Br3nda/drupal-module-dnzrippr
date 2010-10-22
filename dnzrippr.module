@@ -69,7 +69,6 @@ function dnzrippr_timeline_page() {
     
    $result = db_query("SELECT *  FROM {dnznodes} d INNER JOIN {node} n ON d.nid = n.nid WHERE date <> '' AND geocoords <> '' ORDER BY date LIMIT 5000");
 
-  $title = str_replace($node->title, '"', '\"');  
   $js = <<< STR
   
 <script type="text/javascript">
@@ -91,8 +90,10 @@ function timemapLoad() {
                     items: [
 STR;
    while($node = db_fetch_object($result)) {
+    $title = str_replace('"', '\"', $node->title);  
+
     $start = date('Y-m-d g:i:s', $node->date);
-    $end = date('Y-m-d', $node->date+ (60*60*24*256));
+    $end = date('Y-m-d', $node->date+ (60*60*24*30));
     list($lat,$lon) = split(',', $node->geocoords);
     $js .= <<< STR
                         {
