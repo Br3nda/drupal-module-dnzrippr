@@ -71,7 +71,6 @@ function dnzrippr_timeline_page() {
     </div>';
     $output .= '<script>$(document).ready(function() { timemapLoad() });</script>';
     
-   $result = db_query("SELECT *  FROM {dnznodes} d INNER JOIN {node} n ON d.nid = n.nid WHERE date <> '' AND geocoords <> '' ORDER BY date LIMIT 5000");
 
   $js = <<< STR
   
@@ -93,28 +92,17 @@ function timemapLoad() {
                 options: {
                     items: [
 STR;
-   while($node = db_fetch_object($result)) {
-    $title = str_replace('"', '\"', $node->title);  
 
-    $start = date('Y-m-d g:i:s', $node->date);
-    $end = date('Y-m-d', $node->date+ (60*60*24*30));
-    list($lat,$lon) = split(',', $node->geocoords);
-    $js .= <<< STR
-                        {
-                          "start" : "$start",
-                          "end" : "$end",
-                          "point" : {
-                              "lat" : $lat,
-                              "lon" : $lon
-                           },
-                          "title" : "$title",
-                          "options" : {
-                            // set the full HTML for the info window
-                            "infoHtml": "<div class='custominfostyle'>$title</div>"
-                          }
-                        },
-STR;
+   for($i=1800; $i<=2020; $i+=10) {
+     $start = strtotime("$i-01-01");
+     $end = $start+(60*60*24*256*10);
+//      drupal_seT_message("$start to $end");
+     $result = db_query("SELECT *  FROM {dnznodes} d INNER JOIN {node} n ON d.nid = n.nid WHERE date <> '' AND date::bigint > %d AND date::bigint < %d ORDER BY date LIMIT 50", $start, $end);
+      while($node = db_fetch_object($result)) {
+        $js .= dnzrippr_timemap_json($node);
+      }
    }
+   
 
 $js .= <<< STR
                     ]
@@ -133,6 +121,35 @@ STR;
 
 
   return $output; 
+}
+
+function dnzrippr_timemap_json($node) {
+      $title = str_replace('"', '\"', $node->title);  
+
+    $start = date('Y-m-d g:i:s', $node->date);
+    $end = date('Y-m-d', $node->date+ (60*60*24*30));
+    if(!empty($node->geocoords)) {
+      list($lat,$lon) = split(',', $node->geocoords);
+    }
+    else {
+      $lat = 0; $lon = 0;
+    }
+    $js = <<< STR
+                        {
+                          "start" : "$start",
+                          "end" : "$end",
+                          "point" : {
+                              "lat" : $lat,
+                              "lon" : $lon
+                           },
+                          "title" : "$title",
+                          "options" : {
+                            // set the full HTML for the info window
+                            "infoHtml": "<div class='custominfostyle'>$title</div>"
+                          }
+                        },
+STR;
+  return $js;
 }
 
 function dnzrippr_config_page() {
