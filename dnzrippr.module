@@ -124,10 +124,12 @@ STR;
 }
 
 function dnzrippr_timemap_json($node) {
-      $title = str_replace('"', '\"', $node->title);  
-
+    $title = str_replace('"', '\"', $node->title);  
+    $link = str_replace('"', '\"', l($node->title, 'node/'. $node->nid));
     $start = date('Y-m-d g:i:s', $node->date);
     $end = date('Y-m-d', $node->date+ (60*60*24*30));
+    $snippet = str_replace('"', '\"', $node->snippet);  
+    $snippet = str_replace("\n", '', $snippet);
     if(!empty($node->geocoords)) {
       list($lat,$lon) = split(',', $node->geocoords);
     }
@@ -145,7 +147,7 @@ function dnzrippr_timemap_json($node) {
                           "title" : "$title",
                           "options" : {
                             // set the full HTML for the info window
-                            "infoHtml": "<div class='custominfostyle'>$title</div>"
+                            "infoHtml": "<div class='custominfostyle'>$link $snippet</div>"
                           }
                         },
 STR;
