@@ -3,4 +3,5 @@ description = Pulls in a constant feed from a DNZ search query
 dependencies[] = digitalnzapi
 dependencies[] = date
 dependencies[] = gmap
+dependencies[] = image
 core = 6.x
